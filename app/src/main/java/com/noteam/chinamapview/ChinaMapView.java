@@ -11,6 +11,7 @@ import android.graphics.RectF;
 import android.graphics.Region;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
 
@@ -21,6 +22,7 @@ import android.view.View;
 public class ChinaMapView extends View {
     private static final int DEFAULT_COLOR = Color.rgb(0xff, 0xff, 0xff);
     private static final int DEFAULT_SELECTD_COLOR = Color.rgb(0x00, 0xff, 0xff);
+    private static final String TAG = "ChinaMapView";
     private static String[] provinceNames = new String[]{
             "北京",
             "天津",
@@ -191,13 +193,22 @@ public class ChinaMapView extends View {
     }
 
     public interface OnProvinceSelectedListener {
-        public void onProvinceSelected(Area pArea, boolean doubleClick);
+        void onProvinceSelected(Area pArea, boolean repeatClick);
+    }
+
+    public interface OnProvinceDoubleClickListener {
+        void onProvinceDoubleClick();
     }
 
     private OnProvinceSelectedListener xOnProvinceSelectedListener;
+    private OnProvinceDoubleClickListener onProvinceDoubleClickListener;
 
     public void setOnProvinceSelectedListener(OnProvinceSelectedListener pOnProvinceSelectedListener) {
         this.xOnProvinceSelectedListener = pOnProvinceSelectedListener;
+    }
+
+    public void setOnProvinceDoubleClickListener(OnProvinceDoubleClickListener onDoubleClickListener) {
+        this.onProvinceDoubleClickListener = onDoubleClickListener;
     }
 
     private Path[] xPaths = new Path[34];
@@ -267,14 +278,14 @@ public class ChinaMapView extends View {
             if (selected == area.value) {
                 return;
             }
-            
+
             selected = area.value;
             if (this.xOnProvinceSelectedListener != null)
                 this.xOnProvinceSelectedListener.onProvinceSelected(area, false);
             invalidate();
         } catch (Exception e) {
             e.printStackTrace();
-        } 
+        }
 
     }
 
@@ -415,9 +426,30 @@ public class ChinaMapView extends View {
         initPaths();
         computeBounds();
         initPaints();
+        gestureDetector = new GestureDetector(context, new mapGestureListener());
     }
 
-    private static final String TAG = "ChinaMapView";
+    private class mapGestureListener extends GestureDetector.SimpleOnGestureListener {
+    
+        
+
+        @Override
+        public boolean onSingleTapUp(MotionEvent e) {
+            Log.e(TAG, "onSingleTapUp: " );
+            return false;
+        }
+
+        @Override
+        public boolean onDoubleTap(MotionEvent e) {
+            if ( onProvinceDoubleClickListener != null) {
+                onProvinceDoubleClickListener.onProvinceDoubleClick();
+                return true;
+            }
+            return super.onDoubleTap(e);
+        }
+    }
+
+  
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
@@ -666,10 +698,17 @@ public class ChinaMapView extends View {
     }
 
     private long startOnTouchTime = 0;
+//    private int doubleClickCount = 0;
+//    private long firstDoubleClickTime = 0;
 
+    GestureDetector gestureDetector;
 
     @Override
     public boolean onTouchEvent(MotionEvent pMotionEvent) {
+//        gestureDetector=new GestureDetector.SimpleOnGestureListener();
+
+        gestureDetector.onTouchEvent(pMotionEvent);
+
         switch (pMotionEvent.getAction() & MotionEvent.ACTION_MASK) {
             case MotionEvent.ACTION_DOWN:
                 mode = NONE;
@@ -677,6 +716,7 @@ public class ChinaMapView extends View {
                     startOnTouchTime = System.currentTimeMillis();
                     mode = NONE;
                     startPoint.set(pMotionEvent.getX(), pMotionEvent.getY());
+                 
                 }
                 break;
             case MotionEvent.ACTION_POINTER_DOWN:
