@@ -44,7 +44,7 @@ public class MainActivity extends AppCompatActivity {
             public void onProvinceSelected(ChinaMapView.Area pArea, boolean repeatClick) {
 //                Log.e(TAG, "onProvinceSelected: " + pArea.name + "  " + pArea.value);
                 if (repeatClick) {
-//                    scaleAndScroll();
+                    scaleAndScroll();
                     return;
                 }
 

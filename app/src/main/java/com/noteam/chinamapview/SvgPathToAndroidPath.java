@@ -15,8 +15,17 @@ public class SvgPathToAndroidPath {
     private int svgPathLenght = 0;
     private String svgPath = null;
     private int mIndex;
-    private float scale=2.5f;
+    private float scale=1.0f;
     private List<Integer> cmdPositions = new ArrayList<>();
+
+    /**
+     * 设置画路径时，相比原来的倍数,默认1.0，svg的总宽为565像素，总高为594
+     * @param scale
+     */
+    public void setScale(float scale) {
+        this.scale = scale;
+    }
+
     /**
      * M x,y
      * L x,y

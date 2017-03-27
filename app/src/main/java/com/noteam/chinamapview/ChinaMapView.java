@@ -23,6 +23,30 @@ public class ChinaMapView extends View {
     private static final int DEFAULT_COLOR = Color.rgb(0xff, 0xff, 0xff);
     private static final int DEFAULT_SELECTD_COLOR = Color.rgb(0x00, 0xff, 0xff);
     private static final String TAG = "ChinaMapView";
+    private int commonTextSixe = 25;
+    private int textColor = 0xff108EE9;
+    private PointF[] mPointFs = new PointF[4];
+    private float height = 0;
+    private float width = 0;
+    private int padding = 8;
+    private float svgPathScale = 2.5f;
+    private Path[] xPaths = new Path[34];
+    private Paint[] xPaints = new Paint[34];
+    private Paint xPaintsBorder;
+    private Paint touchPaint;
+    private int selected = -1;
+    private Matrix xMatrix = new Matrix();
+    private float translateX, translateY;
+    private int viewHeight, viewWidth;
+    private float minScale = 1;
+    private float maxScale = 6;
+    private float scale;
+    private float defaultScale = 1;
+    private int selectdColor = -1;
+    private int mapColor = -1;
+    private long startOnTouchTime = 0;
+    GestureDetector gestureDetector;
+    
     private static String[] provinceNames = new String[]{
             "北京",
             "天津",
@@ -110,7 +134,7 @@ public class ChinaMapView extends View {
         public int value;
         public String name;
 
-        private Area(String pName, int pValue) {
+        Area(String pName, int pValue) {
             this.name = pName;
             this.value = pValue;
         }
@@ -192,40 +216,7 @@ public class ChinaMapView extends View {
 
     }
 
-    public interface OnProvinceSelectedListener {
-        void onProvinceSelected(Area pArea, boolean repeatClick);
-    }
-
-    public interface OnProvinceDoubleClickListener {
-        void onProvinceDoubleClick();
-    }
-
-    private OnProvinceSelectedListener xOnProvinceSelectedListener;
-    private OnProvinceDoubleClickListener onProvinceDoubleClickListener;
-
-    public void setOnProvinceSelectedListener(OnProvinceSelectedListener pOnProvinceSelectedListener) {
-        this.xOnProvinceSelectedListener = pOnProvinceSelectedListener;
-    }
-
-    public void setOnProvinceDoubleClickListener(OnProvinceDoubleClickListener onDoubleClickListener) {
-        this.onProvinceDoubleClickListener = onDoubleClickListener;
-    }
-
-    private Path[] xPaths = new Path[34];
-    private Paint[] xPaints = new Paint[34];
-    private Paint[] xPaintsBorders = new Paint[34];
-    private Paint xPaintsBorder;
-    private Paint touchPaint;
-    private int selected = -1;
-    private Matrix xMatrix = new Matrix();
-    private float translateX, translateY;
-    private int viewHeight, viewWidth;
-    private float minScale = 1;
-    private float maxScale = 6;
-    private float scale;
-    private float defaultScale = 1;
-    private int selectdColor = -1;
-    private int mapColor = -1;
+  
 
     public void setPaintColor(Area pArea, int color, boolean isFull) {
         Paint p = xPaints[pArea.value];
@@ -260,8 +251,8 @@ public class ChinaMapView extends View {
             return;
         }
         selected = pArea.value;
-        if (this.xOnProvinceSelectedListener != null)
-            this.xOnProvinceSelectedListener.onProvinceSelected(pArea, false);
+        if (this.onProvinceSelectedListener != null)
+            this.onProvinceSelectedListener.onProvinceSelected(pArea, false);
         invalidate();
     }
 
@@ -280,8 +271,8 @@ public class ChinaMapView extends View {
             }
 
             selected = area.value;
-            if (this.xOnProvinceSelectedListener != null)
-                this.xOnProvinceSelectedListener.onProvinceSelected(area, false);
+            if (this.onProvinceSelectedListener != null)
+                this.onProvinceSelectedListener.onProvinceSelected(area, false);
             invalidate();
         } catch (Exception e) {
             e.printStackTrace();
@@ -289,52 +280,32 @@ public class ChinaMapView extends View {
 
     }
 
-    public void up() {
-        translateY += 10;
-        invalidate();
+
+ 
+    public ChinaMapView(Context context) {
+        super(context);
+        initPaths();
+        computeBounds();
+        initPaints();
     }
 
-    public void down() {
-        translateY -= 10;
-        invalidate();
+    public ChinaMapView(Context context, AttributeSet attrs) {
+        super(context, attrs);
+        initPaths();
+        computeBounds();
+        initPaints();
+        gestureDetector = new GestureDetector(context, new mapGestureListener());
     }
 
-    public void left() {
-        translateX += 10;
-        invalidate();
-    }
-
-    public void right() {
-        translateX -= 10;
-        invalidate();
-    }
-
-    public void restScale() {
-        this.scale = defaultScale;
-        xMatrix.setScale(scale, scale);
-        invalidate();
-        ;
-    }
-
-    public void restPosition() {
-        translateX = 0;
-        translateY = 0;
-        invalidate();
-    }
-
-    public void zoomIn() {
-        scale += 0.3;
-        invalidate();
-    }
-
-    public void zoomOut() {
-        scale -= 0.3;
-        invalidate();
-    }
+    /**
+     * 调整清晰度，竖直越大，地图越清晰，一般2.5倍即可，改成其他值之后，需要在drawOneArea方法中调整文字的大小和位置
+     */
+ 
 
     private void initPaths() {
         try {
             SvgPathToAndroidPath lParser = new SvgPathToAndroidPath();
+            lParser.setScale(svgPathScale);
             for (int i = 0; i < svgPaths.length; i++) {
                 String svgPath = svgPaths[i];
                 Path path = lParser.parser(svgPath);
@@ -350,16 +321,7 @@ public class ChinaMapView extends View {
         for (int i = 0; i < xPaints.length; i++) {
             Paint xPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
             xPaint.setColor(DEFAULT_COLOR);
-//            xPaint.setAntiAlias(true);
-//            xPaint.setStrokeWidth(4);
-//            xPaint.setStrokeJoin(Paint.Join.MITER);
-//            xPaint.setStrokeCap(Paint.Cap.SQUARE);
             xPaint.setStyle(Paint.Style.FILL);
-//            DashPathEffect dashPathEffect = new DashPathEffect(new float[]{20, 10, 5, 10}, i);
-//            xPaint.setPathEffect(dashPathEffect);
-
-//            BlurMaskFilter bmf = new BlurMaskFilter(10f,BlurMaskFilter.Blur.INNER);
-//            xPaint.setMaskFilter(bmf);
             xPaints[i] = xPaint;
         }
         touchPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -370,13 +332,7 @@ public class ChinaMapView extends View {
         xPaintsBorder.setStyle(Paint.Style.STROKE);
         xPaintsBorder.setColor(0xffB0D2F6);
         xPaintsBorder.setStrokeWidth(1.5f);
-//        setOnTouchListener(this);
     }
-
-    private PointF[] mPointFs = new PointF[4];
-    private float height = 0;
-    private float width = 0;
-    private int padding = 8;
 
     /**
      * 计算地图边界
@@ -414,34 +370,41 @@ public class ChinaMapView extends View {
 
     }
 
-    public ChinaMapView(Context context) {
-        super(context);
-        initPaths();
-        computeBounds();
-        initPaints();
-    }
-
-    public ChinaMapView(Context context, AttributeSet attrs) {
-        super(context, attrs);
-        initPaths();
-        computeBounds();
-        initPaints();
-        gestureDetector = new GestureDetector(context, new mapGestureListener());
-    }
-
     private class mapGestureListener extends GestureDetector.SimpleOnGestureListener {
-    
-        
+
 
         @Override
-        public boolean onSingleTapUp(MotionEvent e) {
-            Log.e(TAG, "onSingleTapUp: " );
-            return false;
+        public boolean onSingleTapConfirmed(MotionEvent motionEvent) {
+            //延迟点击，在确定不是单击事件后才执行这个方法，效果不是很好
+//            if ( Math.abs(motionEvent.getX() - startPoint.x) < 5f && Math.abs(motionEvent.getY() - startPoint.y) < 5f) {
+//                try {
+//                    for (int i = 0; i < xPaths.length; i++) {
+//                        RectF r = new RectF();
+//                        xPaths[i].computeBounds(r, true);
+//                        Region re = new Region();
+//                        re.setPath(xPaths[i], new Region((int) r.left, (int) r.top, (int) r.right, (int) r.bottom));
+//                        if (re.contains((int) (motionEvent.getX() / scale - translateX - padding), (int) (motionEvent.getY() / scale - translateY - padding))) {
+//                            boolean doubleClick = i == selected;
+//
+//                            selected = i;
+//                            if (onProvinceSelectedListener != null)
+//                                onProvinceSelectedListener.onProvinceSelected(Area.valueOf(selected), doubleClick);
+//
+//
+//                            invalidate();
+//                            return true;
+//                        }
+//                    }
+//                } catch (Exception e) {
+//                    e.printStackTrace();
+//                }
+//            }
+            return super.onSingleTapConfirmed(motionEvent);
         }
 
         @Override
         public boolean onDoubleTap(MotionEvent e) {
-            if ( onProvinceDoubleClickListener != null) {
+            if (onProvinceDoubleClickListener != null) {
                 onProvinceDoubleClickListener.onProvinceDoubleClick();
                 return true;
             }
@@ -449,14 +412,13 @@ public class ChinaMapView extends View {
         }
     }
 
-  
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
         int speSize = MeasureSpec.getSize(widthMeasureSpec);
         minScale = defaultScale = scale = speSize / width;
-        Log.e(TAG, "onMeasure: " + speSize + "   " + minScale + "  " + (int) (speSize * height / width));
+        Log.i(TAG, "onMeasure: " + speSize + "   " + minScale + "  " + (int) (speSize * height / width));
         setMeasuredDimension(speSize, (int) (speSize * height / width));
     }
 
@@ -471,8 +433,6 @@ public class ChinaMapView extends View {
         drawSelectedMap(canvas);
     }
 
-    private int commonTextSixe = 25;
-    private int textColor = 0xff108EE9;
 
     private void drawBaseMap(Canvas pCanvas) {
         Paint textPaint = new Paint();
@@ -494,103 +454,99 @@ public class ChinaMapView extends View {
             if (Area.XiangGang == Area.valueOf(i) || Area.AoMen == Area.valueOf(i)) {
                 continue;
             }
-            RectF testRect = new RectF();
-            xPaths[i].computeBounds(testRect, true);
 
-            int paddingLeft = 0;
-            int paddingTop = 0;
-//            Area area = Area.valueOf(i);
-//            int value = Area.NeiMengGu.value;
-//            if (area!=null) {
-//                switch(area.ordinal()){
-//                    case 26:
-//                        paddingTop += 180;
-//                        paddingLeft -= 120;
-//                        break;
-//                }
-//            }
 
-            if (Area.NeiMengGu == Area.valueOf(i)) {
-                paddingTop += 180;
-                paddingLeft -= 120;
-            }
-
-            if (Area.XinJiang == Area.valueOf(i)) {
-                paddingLeft -= 100;
-                paddingTop += 50;
-            }
-
-            if (Area.XiZang == Area.valueOf(i)) {
-                paddingLeft -= 110;
-
-            }
-
-            if (Area.GanSu == Area.valueOf(i)) {
-                paddingLeft += 50;
-                paddingTop += 90;
-            }
-            if (Area.ShangHai == Area.valueOf(i)) {
-                paddingLeft += 7;
-            }
-
-            if (Area.GuangDong == Area.valueOf(i)) {
-                paddingTop -= 20;
-            }
-
-            if (Area.ShaanXi == Area.valueOf(i)) {
-                paddingTop += 38;
-            }
-            if (Area.ShanXi == Area.valueOf(i)) {
-                paddingLeft -= 20;
-            }
-
-            if (Area.HeiLongJiang == Area.valueOf(i)) {
-                paddingLeft -= 25;
-                paddingTop += 30;
-            }
-
-            if (Area.HeBei == Area.valueOf(i)) {
-                paddingLeft -= 50;
-                paddingTop += 50;
-            }
-            if (Area.BeiJing == Area.valueOf(i)) {
-                paddingLeft += 0;
-                paddingTop += 1;
-                textPaint.setTextSize(14);
-            }
-
-            if (Area.TianJin == Area.valueOf(i)) {
-                paddingLeft -= 3;
-                paddingTop += 10;
-                textPaint.setTextSize(14);
-            }
-
-            if (Area.NingXia == Area.valueOf(i)) {
-                paddingLeft -= 15;
-                paddingTop += 10;
-                textPaint.setTextSize(21);
-            }
-
-            if (Area.ChongQing == Area.valueOf(i)) {
-                paddingLeft -= 25;
-                paddingTop += 25;
-                textPaint.setTextSize(22);
-            }
-
-            if (Area.JiangXi == Area.valueOf(i)) {
-                paddingLeft -= 25;
-            }
-
-            if (Area.AnHui == Area.valueOf(i)) {
-                paddingLeft -= 25;
-            }
-            if (Area.YunNan == Area.valueOf(i)) {
-                paddingLeft -= 25;
-            }
-
-            pCanvas.drawText(provinceNames[i], testRect.left + testRect.width() / 2 - padding + paddingLeft, testRect.top + testRect.height() / 2 + paddingTop, textPaint);
+            drawOneArea(pCanvas, textPaint, i);
 
         }
+    }
+
+    private void drawOneArea(Canvas pCanvas, Paint textPaint, int index) {
+        RectF testRect = new RectF();
+        xPaths[index].computeBounds(testRect, true);
+
+        int paddingLeft = 0;
+        int paddingTop = 0;
+
+        if (Area.NeiMengGu == Area.valueOf(index)) {
+            paddingTop += 180;
+            paddingLeft -= 120;
+        }
+
+        if (Area.XinJiang == Area.valueOf(index)) {
+            paddingLeft -= 100;
+            paddingTop += 50;
+        }
+
+        if (Area.XiZang == Area.valueOf(index)) {
+            paddingLeft -= 110;
+
+        }
+
+        if (Area.GanSu == Area.valueOf(index)) {
+            paddingLeft += 50;
+            paddingTop += 90;
+        }
+        if (Area.ShangHai == Area.valueOf(index)) {
+            paddingLeft += 7;
+        }
+
+        if (Area.GuangDong == Area.valueOf(index)) {
+            paddingTop -= 20;
+        }
+
+        if (Area.ShaanXi == Area.valueOf(index)) {
+            paddingTop += 38;
+        }
+        if (Area.ShanXi == Area.valueOf(index)) {
+            paddingLeft -= 20;
+        }
+
+        if (Area.HeiLongJiang == Area.valueOf(index)) {
+            paddingLeft -= 25;
+            paddingTop += 30;
+        }
+
+        if (Area.HeBei == Area.valueOf(index)) {
+            paddingLeft -= 50;
+            paddingTop += 50;
+        }
+        if (Area.BeiJing == Area.valueOf(index)) {
+            paddingLeft += 0;
+            paddingTop += 1;
+            textPaint.setTextSize(14);
+        }
+
+        if (Area.TianJin == Area.valueOf(index)) {
+            paddingLeft -= 3;
+            paddingTop += 10;
+            textPaint.setTextSize(14);
+        }
+
+        if (Area.NingXia == Area.valueOf(index)) {
+            paddingLeft -= 15;
+            paddingTop += 10;
+            textPaint.setTextSize(21);
+        }
+
+        if (Area.ChongQing == Area.valueOf(index)) {
+            paddingLeft -= 25;
+            paddingTop += 25;
+            textPaint.setTextSize(22);
+        }
+
+        if (Area.JiangXi == Area.valueOf(index)) {
+            paddingLeft -= 25;
+        }
+
+        if (Area.AnHui == Area.valueOf(index)) {
+            paddingLeft -= 25;
+        }
+        if (Area.YunNan == Area.valueOf(index)) {
+            paddingLeft -= 25;
+        }
+
+        pCanvas.drawText(provinceNames[index], testRect.left + testRect.width() / 2 - padding + paddingLeft, testRect.top + testRect.height() / 2 + paddingTop, textPaint);
     }
 
     private void drawSelectedMap(Canvas pCanvas) {
@@ -598,95 +554,12 @@ public class ChinaMapView extends View {
             if (selectdColor != -1) {
                 touchPaint.setColor(selectdColor);
             }
+            pCanvas.drawPath(xPaths[selected], touchPaint);
             Paint textPaint = new Paint();
             textPaint.setStyle(Paint.Style.FILL);
             textPaint.setColor(0xffffffff);
             textPaint.setTextSize(commonTextSixe);
-            RectF testRect = new RectF();
-            xPaths[selected].computeBounds(testRect, true);
-            int paddingLeft = 0;
-            int paddingTop = 0;
-            pCanvas.drawPath(xPaths[selected], touchPaint);
-            int i = selected;
-            if (Area.NeiMengGu == Area.valueOf(i)) {
-                paddingTop += 180;
-                paddingLeft -= 120;
-            }
-
-            if (Area.XinJiang == Area.valueOf(i)) {
-                paddingLeft -= 100;
-                paddingTop += 50;
-            }
-
-            if (Area.XiZang == Area.valueOf(i)) {
-                paddingLeft -= 110;
-
-            }
-
-            if (Area.GanSu == Area.valueOf(i)) {
-                paddingLeft += 50;
-                paddingTop += 90;
-            }
-            if (Area.ShangHai == Area.valueOf(i)) {
-                paddingLeft += 7;
-            }
-
-            if (Area.GuangDong == Area.valueOf(i)) {
-                paddingTop -= 20;
-            }
-
-            if (Area.ShaanXi == Area.valueOf(i)) {
-                paddingTop += 38;
-            }
-            if (Area.ShanXi == Area.valueOf(i)) {
-                paddingLeft -= 20;
-            }
-
-            if (Area.HeiLongJiang == Area.valueOf(i)) {
-                paddingLeft -= 25;
-                paddingTop += 30;
-            }
-
-            if (Area.HeBei == Area.valueOf(i)) {
-                paddingLeft -= 50;
-                paddingTop += 50;
-            }
-            if (Area.BeiJing == Area.valueOf(i)) {
-                paddingLeft += 0;
-                paddingTop += 1;
-                textPaint.setTextSize(14);
-            }
-
-            if (Area.TianJin == Area.valueOf(i)) {
-                paddingLeft -= 3;
-                paddingTop += 10;
-                textPaint.setTextSize(14);
-            }
-
-            if (Area.NingXia == Area.valueOf(i)) {
-                paddingLeft -= 15;
-                paddingTop += 10;
-                textPaint.setTextSize(21);
-            }
-
-            if (Area.ChongQing == Area.valueOf(i)) {
-                paddingLeft -= 25;
-                paddingTop += 25;
-                textPaint.setTextSize(22);
-            }
-
-            if (Area.JiangXi == Area.valueOf(i)) {
-                paddingLeft -= 25;
-            }
-
-            if (Area.AnHui == Area.valueOf(i)) {
-                paddingLeft -= 25;
-            }
-            if (Area.YunNan == Area.valueOf(i)) {
-                paddingLeft -= 25;
-            }
-            pCanvas.drawText(provinceNames[selected], testRect.left + testRect.width() / 2 - padding + paddingLeft, testRect.top + testRect.height() / 2 + paddingTop, textPaint);
-
+            drawOneArea(pCanvas, textPaint, selected);
         }
     }
 
@@ -697,16 +570,9 @@ public class ChinaMapView extends View {
         viewHeight = h;
     }
 
-    private long startOnTouchTime = 0;
-//    private int doubleClickCount = 0;
-//    private long firstDoubleClickTime = 0;
-
-    GestureDetector gestureDetector;
 
     @Override
     public boolean onTouchEvent(MotionEvent pMotionEvent) {
-//        gestureDetector=new GestureDetector.SimpleOnGestureListener();
-
         gestureDetector.onTouchEvent(pMotionEvent);
 
         switch (pMotionEvent.getAction() & MotionEvent.ACTION_MASK) {
@@ -716,16 +582,9 @@ public class ChinaMapView extends View {
                     startOnTouchTime = System.currentTimeMillis();
                     mode = NONE;
                     startPoint.set(pMotionEvent.getX(), pMotionEvent.getY());
-                 
+
                 }
                 break;
-            case MotionEvent.ACTION_POINTER_DOWN:
-//                onPointerDown(pMotionEvent);
-                break;
-            case MotionEvent.ACTION_MOVE:
-//                onTouchMove(pMotionEvent);
-                break;
-//            case MotionEvent.ACTION_POINTER_UP:
             case MotionEvent.ACTION_UP:
                 mode = NONE;
                 if (pMotionEvent.getPointerCount() == 1) {
@@ -739,12 +598,9 @@ public class ChinaMapView extends View {
                                 re.setPath(xPaths[i], new Region((int) r.left, (int) r.top, (int) r.right, (int) r.bottom));
                                 if (re.contains((int) (pMotionEvent.getX() / scale - translateX - padding), (int) (pMotionEvent.getY() / scale - translateY - padding))) {
                                     boolean doubleClick = i == selected;
-//                                    if (i == selected) {
-//                                        return true;
-//                                    }
                                     selected = i;
-                                    if (this.xOnProvinceSelectedListener != null)
-                                        this.xOnProvinceSelectedListener.onProvinceSelected(Area.valueOf(selected), doubleClick);
+                                    if (this.onProvinceSelectedListener != null)
+                                        this.onProvinceSelectedListener.onProvinceSelected(Area.valueOf(selected), doubleClick);
 
 
                                     invalidate();
@@ -833,4 +689,22 @@ public class ChinaMapView extends View {
         return new PointF(midx / 2, midy / 2);
     }
 
+    public interface OnProvinceSelectedListener {
+        void onProvinceSelected(Area pArea, boolean repeatClick);
+    }
+
+    public interface OnProvinceDoubleClickListener {
+        void onProvinceDoubleClick();
+    }
+
+    private OnProvinceSelectedListener onProvinceSelectedListener;
+    private OnProvinceDoubleClickListener onProvinceDoubleClickListener;
+
+    public void setOnProvinceSelectedListener(OnProvinceSelectedListener pOnProvinceSelectedListener) {
+        this.onProvinceSelectedListener = pOnProvinceSelectedListener;
+    }
+
+    public void setOnProvinceDoubleClickListener(OnProvinceDoubleClickListener onDoubleClickListener) {
+        this.onProvinceDoubleClickListener = onDoubleClickListener;
+    }
 }
